@@ -1,0 +1,2449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新能源综合管理平台</title>
+  <!-- 引入外部资源 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  
+  <!-- Tailwind 配置 - 统一设计系统 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#36CFC9',
+            accent: '#FF7D00',
+            warning: '#FF4D4F',
+            success: '#52C41A',
+            info: '#86909C',
+            light: '#F2F3F5',
+            dark: '#1D2129',
+            green: {
+              50: '#F0FDF4',
+              100: '#DCFCE7',
+              200: '#BBF7D0',
+              300: '#86EFAC',
+              400: '#4ADE80',
+              500: '#22C55E',
+              600: '#16A34A',
+              700: '#15803D',
+              800: '#166534',
+              900: '#14532D',
+            }
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .shadow-soft {
+        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+      }
+      .card-hover {
+        transition: all 0.3s ease;
+      }
+      .card-hover:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(22, 93, 255, 0.1);
+      }
+      .map-container {
+        position: relative;
+        height: 500px;
+        min-height: 400px;
+        overflow: hidden;
+      }
+      .chart-container {
+        position: relative;
+        height: 350px;
+        width: 100%;
+      }
+      .gradient-bg {
+        background: linear-gradient(135deg, rgba(22, 93, 255, 0.05) 0%, rgba(54, 207, 201, 0.05) 100%);
+      }
+      .token-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid rgba(22, 93, 255, 0.1);
+      }
+      .abs-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid rgba(34, 197, 94, 0.1);
+      }
+      .timeline-item {
+        position: relative;
+      }
+      .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -31px;
+        top: 0;
+        height: 100%;
+        width: 2px;
+        background-color: #E5E7EB;
+      }
+      .timeline-item::after {
+        content: '';
+        position: absolute;
+        left: -35px;
+        top: 6px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #165DFF;
+        border: 2px solid white;
+      }
+      .timeline-item:last-child::before {
+        height: 6px;
+      }
+      .fade-in {
+        animation: fadeIn 0.6s ease-in-out;
+      }
+      .progress-bar {
+        height: 6px;
+        background: linear-gradient(90deg, #22C55E 0%, #16A34A 100%);
+        border-radius: 3px;
+        transition: width 1s ease-in-out;
+      }
+      .module-section {
+        display: none;
+      }
+      .module-section.active {
+        display: block;
+        animation: fadeIn 0.6s ease-in-out;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    }
+  </style>
+</head>
+<body class="font-inter bg-gray-50 text-dark">
+  <!-- 顶部导航栏 - 统一导航 -->
+  <header class="bg-white shadow-sm sticky top-0 z-50 transition-all duration-300">
+    <div class="container mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center">
+      <div class="flex items-center space-x-3 mb-4 md:mb-0">
+        <i class="fa fa-bolt text-primary text-2xl"></i>
+        <h1 class="text-[clamp(1.25rem,3vw,1.75rem)] font-bold text-primary">新能源综合管理平台</h1>
+      </div>
+      
+      <div class="flex items-center space-x-6">
+        <div class="flex items-center space-x-2 text-info">
+          <i class="fa fa-clock-o" id="global-last-update-icon"></i>
+          <span id="global-last-update">最后更新: 加载中...</span>
+        </div>
+        
+        <div class="flex flex-wrap gap-2">
+          <button class="module-btn bg-primary text-white px-4 py-2 rounded-lg transition-all flex items-center space-x-2" data-module="weather">
+            <i class="fa fa-map"></i>
+            <span>气象地图</span>
+          </button>
+          <button class="module-btn bg-gray-100 hover:bg-gray-200 text-dark px-4 py-2 rounded-lg transition-all flex items-center space-x-2" data-module="forecast">
+            <i class="fa fa-bolt"></i>
+            <span>发电预测</span>
+          </button>
+          <button class="module-btn bg-gray-100 hover:bg-gray-200 text-dark px-4 py-2 rounded-lg transition-all flex items-center space-x-2" data-module="revenue">
+            <i class="fa fa-line-chart"></i>
+            <span>电力收益</span>
+          </button>
+          <button class="module-btn bg-gray-100 hover:bg-gray-200 text-dark px-4 py-2 rounded-lg transition-all flex items-center space-x-2" data-module="rwa">
+            <i class="fa fa-cubes"></i>
+            <span>RWA代币化</span>
+          </button>
+          <button class="module-btn bg-gray-100 hover:bg-gray-200 text-dark px-4 py-2 rounded-lg transition-all flex items-center space-x-2" data-module="abs">
+            <i class="fa fa-certificate"></i>
+            <span>绿色ABS</span>
+          </button>
+          <button id="global-refresh-btn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg transition-all flex items-center space-x-2">
+            <i class="fa fa-refresh"></i>
+            <span>刷新数据</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主要内容区 - 模块容器 -->
+  <main class="container mx-auto px-4 py-6">
+    <!-- 1. 气象地图模块 -->
+    <section id="weather-module" class="module-section active">
+      <!-- 数据筛选和概览 -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <!-- 数据筛选卡片 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 md:col-span-1 card-hover">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-filter text-primary mr-2"></i>数据筛选
+          </h2>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">气象指标</label>
+              <select id="weather-indicator" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+                <option value="temperature">温度 (°C)</option>
+                <option value="humidity">湿度 (%)</option>
+                <option value="wind">风速 (km/h)</option>
+                <option value="solar">太阳光照强度(W/m²)</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">数据范围</label>
+              <div class="grid grid-cols-2 gap-2">
+                <button class="indicator-range bg-primary text-white px-3 py-2 rounded-lg text-sm">杭州萧山</button>
+                <button class="indicator-range bg-gray-100 cursor-not-allowed opacity-50 px-3 py-2 rounded-lg text-sm">其他区域</button>
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">时间选择</label>
+              <input type="date" id="weather-date-select" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+            </div>
+          </div>
+        </div>
+        
+        <!-- 数据概览卡片 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 md:col-span-3 card-hover">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-bar-chart text-primary mr-2"></i>杭州萧山气象概览
+          </h2>
+          
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+              <p class="text-sm text-blue-600 mb-1">当前温度</p>
+              <p class="text-2xl font-bold text-blue-800" id="weather-avg-temp">25.5°C</p>
+            </div>
+            
+            <div class="bg-green-50 p-4 rounded-lg border border-green-100">
+              <p class="text-sm text-green-600 mb-1">当前湿度</p>
+              <p class="text-2xl font-bold text-green-800" id="weather-avg-humidity">63%</p>
+            </div>
+            
+            <div class="bg-purple-50 p-4 rounded-lg border border-purple-100">
+              <p class="text-sm text-purple-600 mb-1">当前风速</p>
+              <p class="text-2xl font-bold text-purple-800" id="weather-avg-wind">3.0 km/h</p>
+            </div>
+            
+            <div class="bg-amber-50 p-4 rounded-lg border border-amber-100">
+              <p class="text-sm text-amber-600 mb-1">太阳光照强度</p>
+              <p class="text-2xl font-bold text-amber-800" id="weather-solar-intensity">580 W/m²</p>
+            </div>
+          </div>
+          
+          <div class="h-48 chart-container" style="height: 300px;">
+            <canvas id="weather-trend-chart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 地图和详情面板 -->
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <!-- 中国地图（仅显示杭州萧山标记） -->
+        <div class="bg-white rounded-xl shadow-soft p-5 lg:col-span-3 card-hover">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold flex items-center">
+              <i class="fa fa-map-marker text-primary mr-2"></i>气象地图
+            </h2>
+            
+            <div class="flex items-center space-x-2">
+              <span class="text-sm text-gray-500">图例:</span>
+              <div class="flex items-center">
+                <div class="w-3 h-3 bg-yellow-500 rounded-full mr-1"></div>
+                <span class="text-xs">杭州萧山</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 静态地图容器 -->
+          <div class="map-container w-full rounded-lg bg-gray-100 border border-gray-200">
+            <!-- 使用图片作为地图底图 -->
+            <img src="https://src.pcsoft.com.cn/d/file/soft/txtx/txll/2020-06-23/9dccd69198a25e9a45a71c7222e54d64.jpg" alt="中国地图" class="map-image">
+            
+            <!-- 城市标记容器 -->
+            <div id="weather-city-markers-container"></div>
+          </div>
+          
+          <div class="mt-4 text-center text-sm text-gray-500">
+            <p>地图上的标记显示杭州萧山位置，点击查看详细气象数据</p>
+          </div>
+        </div>
+        
+        <!-- 城市详情面板 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 lg:col-span-1 card-hover">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-info-circle text-primary mr-2"></i>杭州萧山详情
+          </h2>
+          
+          <div id="weather-city-detail" class="space-y-4">
+            <div class="text-center py-8 text-gray-400">
+              <i class="fa fa-map-marker text-4xl mb-2 text-primary"></i>
+              <p>点击地图上的标记查看详细数据</p>
+            </div>
+          </div>
+          
+          <div class="mt-6 pt-4 border-t border-gray-100">
+            <h3 class="font-medium mb-3">快速查看</h3>
+            <div class="grid grid-cols-2 gap-2">
+              <button class="city-btn bg-primary text-white p-2 rounded-lg text-sm transition-colors" style="grid-column: span 2;" id="weather-quick-view-btn">杭州萧山</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 发电预测模块 -->
+    <section id="forecast-module" class="module-section">
+      <!-- 模型简介和控制区 -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <!-- 模型简介 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 lg:col-span-2 card-hover fade-in">
+          <h2 class="text-lg font-semibold mb-3 flex items-center">
+            <i class="fa fa-info-circle text-primary mr-2"></i>TS-CNN-PowerForecast 模型介绍
+          </h2>
+          <p class="text-gray-600 mb-4">
+            基于时序卷积神经网络的发电量预测模型，结合气象数据与历史发电数据，实现高精度的短期和中期发电量预测。
+          </p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div class="bg-blue-50 p-3 rounded-lg">
+              <p class="text-blue-600 font-medium">预测精度</p>
+              <p class="font-semibold">92.7%</p>
+            </div>
+            <div class="bg-green-50 p-3 rounded-lg">
+              <p class="text-green-600 font-medium">数据输入</p>
+              <p class="font-semibold">7种气象特征</p>
+            </div>
+            <div class="bg-purple-50 p-3 rounded-lg">
+              <p class="text-purple-600 font-medium">预测范围</p>
+              <p class="font-semibold">1小时-7天</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 预测控制 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 lg:col-span-1 card-hover fade-in">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-sliders text-primary mr-2"></i>预测参数
+          </h2>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">发电厂类型</label>
+              <select id="forecast-plant-type" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+                <option value="solar">太阳能电站</option>
+                <option value="wind" selected>风力发电场</option>
+                <option value="hydro">水力发电站</option>
+                <option value="thermal">火力发电厂</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">预测周期</label>
+              <select id="forecast-period" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+                <option value="24h">24小时（短期）</option>
+                <option value="7d" selected>7天（中期）</option>
+                <option value="30d">30天（长期）</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">气象数据来源</label>
+              <div class="flex items-center space-x-2">
+                <input type="radio" id="forecast-source-real" name="forecast-data-source" checked class="text-primary">
+                <label for="forecast-source-real" class="text-sm">实时气象数据</label>
+              </div>
+              <div class="flex items-center space-x-2">
+                <input type="radio" id="forecast-source-forecast" name="forecast-data-source" class="text-primary">
+                <label for="forecast-source-forecast" class="text-sm">气象预报数据</label>
+              </div>
+            </div>
+            
+            <button id="forecast-apply-settings" class="w-full bg-primary hover:bg-primary/90 text-white py-2 rounded-lg transition-all flex items-center justify-center space-x-2">
+              <i class="fa fa-check"></i>
+              <span>应用设置</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- 预测结果展示 -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <!-- 主要预测曲线 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 lg:col-span-3 card-hover fade-in">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+            <h2 class="text-lg font-semibold flex items-center mb-2 md:mb-0">
+              <i class="fa fa-line-chart text-primary mr-2"></i>发电量预测曲线
+            </h2>
+            
+            <div class="flex flex-wrap gap-2">
+              <div class="flex items-center">
+                <div class="w-3 h-3 bg-primary rounded-full mr-1"></div>
+                <span class="text-xs text-gray-600">预测发电量</span>
+              </div>
+              <div class="flex items-center">
+                <div class="w-3 h-3 bg-gray-300 rounded-full mr-1"></div>
+                <span class="text-xs text-gray-600">实际发电量</span>
+              </div>
+              <div class="flex items-center">
+                <div class="w-3 h-3 bg-secondary rounded-full mr-1"></div>
+                <span class="text-xs text-gray-600">温度影响因子</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="chart-container" style="height: 350px;">
+            <canvas id="forecast-main-chart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 预测指标和误差分析 -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- 预测性能指标 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 lg:col-span-1 card-hover fade-in">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-tachometer text-primary mr-2"></i>模型性能指标
+          </h2>
+          
+          <div class="space-y-4">
+            <div class="metric-card bg-gray-50 p-4 rounded-lg">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-sm text-gray-600">均方根误差 (RMSE)</span>
+                <span class="text-sm font-semibold">3.24 MW</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-primary h-2 rounded-full" style="width: 15%"></div>
+              </div>
+            </div>
+            
+            <div class="metric-card bg-gray-50 p-4 rounded-lg">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-sm text-gray-600">平均绝对误差 (MAE)</span>
+                <span class="text-sm font-semibold">2.17 MW</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-primary h-2 rounded-full" style="width: 10%"></div>
+              </div>
+            </div>
+            
+            <div class="metric-card bg-gray-50 p-4 rounded-lg">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-sm text-gray-600">平均绝对百分比误差 (MAPE)</span>
+                <span class="text-sm font-semibold">7.3%</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-primary h-2 rounded-full" style="width: 7%"></div>
+              </div>
+            </div>
+            
+            <div class="metric-card bg-gray-50 p-4 rounded-lg">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-sm text-gray-600">决定系数 (R²)</span>
+                <span class="text-sm font-semibold">0.927</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-primary h-2 rounded-full" style="width: 93%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 误差分析 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 lg:col-span-2 card-hover fade-in">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-bar-chart text-primary mr-2"></i>误差分析与气象影响
+          </h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="h-64 chart-container" style="height: 250px;">
+              <canvas id="forecast-error-chart"></canvas>
+            </div>
+            <div class="h-64 chart-container" style="height: 250px;">
+              <canvas id="forecast-factors-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 电力收益模块 -->
+    <section id="revenue-module" class="module-section">
+      <!-- 收益概览 -->
+      <div class="bg-white rounded-xl shadow-soft p-6 mb-6 fade-in">
+        <h2 class="text-xl font-semibold mb-6 flex items-center">
+          <i class="fa fa-bar-chart text-primary mr-2"></i>电力收益概览
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 card-hover">
+            <p class="text-sm text-blue-600 mb-1">总收益 (本月)</p>
+            <p class="text-2xl font-bold text-blue-800" id="revenue-total">¥6,564,337.43</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center">
+              <i class="fa fa-arrow-up mr-1"></i> 较上月增长 8.3%
+            </p>
+          </div>
+          
+          <div class="bg-green-50 p-4 rounded-lg border border-green-100 card-hover">
+            <p class="text-sm text-green-600 mb-1">峰谷套利收益</p>
+            <p class="text-2xl font-bold text-green-800" id="revenue-peak-valley">¥215,300</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center">
+              <i class="fa fa-arrow-up mr-1"></i> 占比 17.1%
+            </p>
+          </div>
+          
+          <div class="bg-purple-50 p-4 rounded-lg border border-purple-100 card-hover">
+            <p class="text-sm text-purple-600 mb-1">绿证与碳配额收益</p>
+            <p class="text-2xl font-bold text-purple-800" id="revenue-green">¥186,500</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center">
+              <i class="fa fa-arrow-up mr-1"></i> 占比 14.8%
+            </p>
+          </div>
+          
+          <div class="bg-amber-50 p-4 rounded-lg border border-amber-100 card-hover">
+            <p class="text-sm text-amber-600 mb-1">确权资产估值</p>
+            <p class="text-2xl font-bold text-amber-800" id="revenue-asset-value">¥21,000,000</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center">
+              <i class="fa fa-arrow-up mr-1"></i> 较年初增长 5.2%
+            </p>
+          </div>
+        </div>
+        
+        <div class="chart-container" style="height: 350px;">
+          <canvas id="revenue-trend-chart"></canvas>
+        </div>
+      </div>
+      
+      <!-- 核心功能区 -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <!-- 峰谷套利 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 card-hover fade-in">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold flex items-center">
+              <i class="fa fa-exchange text-primary mr-2"></i>峰谷套利策略
+            </h2>
+            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">优化中</span>
+          </div>
+          
+          <p class="text-gray-600 text-sm mb-4">
+            根据电价峰谷时段差异，结合发电预测，制定最优上网策略，最大化售电收益。
+          </p>
+          
+          <div class="space-y-3 mb-4">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span>当前策略执行率</span>
+                <span class="font-medium">92%</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-primary h-2 rounded-full" style="width: 92%"></div>
+              </div>
+            </div>
+            
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span>本月套利效率</span>
+                <span class="font-medium">87%</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-primary h-2 rounded-full" style="width: 87%"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="h-48 chart-container" style="height: 200px;">
+            <canvas id="revenue-peak-valley-chart"></canvas>
+          </div>
+          
+          <button class="w-full mt-4 bg-gray-100 hover:bg-gray-200 text-dark py-2 rounded-lg transition-all text-sm flex items-center justify-center">
+            <i class="fa fa-cog mr-1"></i> 调整套利策略
+          </button>
+        </div>
+        
+        <!-- 绿证与碳配额 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 card-hover fade-in">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold flex items-center">
+              <i class="fa fa-leaf text-primary mr-2"></i>绿证与碳配额管理
+            </h2>
+            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">可交易</span>
+          </div>
+          
+          <p class="text-gray-600 text-sm mb-4">
+            管理绿色电力证书和碳排放配额，跟踪市场价格波动，优化交易时机，实现额外收益。
+          </p>
+          
+          <div class="space-y-4 mb-4">
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <div>
+                <p class="text-sm">绿色电力证书</p>
+                <p class="text-xs text-gray-500">剩余 1,256 张</p>
+              </div>
+              <span class="text-primary font-medium">¥180/张</span>
+            </div>
+            
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <div>
+                <p class="text-sm">碳排放配额</p>
+                <p class="text-xs text-gray-500">剩余 8,742 吨</p>
+              </div>
+              <span class="text-primary font-medium">¥62/吨</span>
+            </div>
+          </div>
+          
+          <div class="h-48 chart-container" style="height: 200px;">
+            <canvas id="revenue-carbon-market-chart"></canvas>
+          </div>
+          
+          <button class="w-full mt-4 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg transition-all text-sm flex items-center justify-center">
+            <i class="fa fa-line-chart mr-1"></i> 查看市场行情
+          </button>
+        </div>
+        
+        <!-- 收益权标定 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 card-hover fade-in">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-balance-scale text-primary mr-2"></i>收益权标定
+          </h2>
+          
+          <p class="text-gray-600 text-sm mb-4">
+            结合收益法与成本法，科学评估电力资产收益权价值，为交易和融资提供依据。
+          </p>
+          
+          <div class="space-y-3 mb-5">
+            <div class="p-3 bg-gray-50 rounded-lg">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-sm">收益法评估值</span>
+                <span class="text-sm font-medium">¥21,000,000</span>
+              </div>
+              <p class="text-xs text-gray-500">基于未来5年收益预测，折现率8%</p>
+            </div>
+            
+            <div class="p-3 bg-gray-50 rounded-lg">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-sm">成本法评估值</span>
+                <span class="text-sm font-medium">¥12,450,000</span>
+              </div>
+              <p class="text-xs text-gray-500">基于重置成本扣减折旧，成新率78%</p>
+            </div>
+            
+            <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
+              <div class="flex justify-between items-center">
+                <span class="text-sm font-medium">最终标定价值</span>
+                <span class="text-sm font-bold text-primary">¥16,725,000</span>
+              </div>
+            </div>
+          </div>
+          
+          <button class="w-full mb-2 bg-primary hover:bg-primary/90 text-white py-2 rounded-lg transition-all text-sm flex items-center justify-center">
+            <i class="fa fa-file-text-o mr-1"></i> 查看评估报告
+          </button>
+          
+          <button class="w-full bg-gray-100 hover:bg-gray-200 text-dark py-2 rounded-lg transition-all text-sm flex items-center justify-center">
+            <i class="fa fa-refresh mr-1"></i> 重新评估
+          </button>
+        </div>
+      </div>
+      
+      <!-- 权属确权（区块链上链存证） -->
+      <div class="bg-white rounded-xl shadow-soft p-5 mb-6 fade-in">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+          <h2 class="text-lg font-semibold flex items-center mb-3 md:mb-0">
+            <i class="fa fa-link text-primary mr-2"></i>权属确权与区块链存证
+          </h2>
+          
+          <div class="flex items-center space-x-3">
+            <div class="flex items-center">
+              <div class="w-3 h-3 bg-success rounded-full mr-1"></div>
+              <span class="text-xs text-gray-600">已上链存证</span>
+            </div>
+            
+            <button class="bg-primary hover:bg-primary/90 text-white px-3 py-1.5 rounded-lg transition-all text-sm flex items-center">
+              <i class="fa fa-qrcode mr-1"></i> 查看存证
+            </button>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <!-- 区块链信息 -->
+          <div class="lg:col-span-2">
+            <div class="gradient-bg p-4 rounded-lg mb-4">
+              <h3 class="font-medium mb-3">区块链存证信息</h3>
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-600">存证ID</span>
+                  <span class="font-medium">PWR-20230628-7542</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">区块高度</span>
+                  <span class="font-medium">18,754,219</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">上链时间</span>
+                  <span class="font-medium">2023-06-28 14:35:22</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">哈希值</span>
+                  <span class="font-mono text-xs truncate max-w-[180px]">0x7a3f9c2e4d8b1a6c3e5f7d9b0a2c4e6f8d0b1c2d3e4f5a6b7c8d9e0f1a2b3c</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">状态</span>
+                  <span class="text-success font-medium">已确认</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="bg-gray-50 p-4 rounded-lg">
+              <h3 class="font-medium mb-3">存证内容摘要</h3>
+              <ul class="space-y-2 text-sm">
+                <li class="flex items-start">
+                  <i class="fa fa-check-circle text-success mt-1 mr-2"></i>
+                  <span>6000kW光伏电站所有权证明文件</span>
+                </li>
+                <li class="flex items-start">
+                  <i class="fa fa-check-circle text-success mt-1 mr-2"></i>
+                  <span>收益权评估报告与标定结果</span>
+                </li>
+                <li class="flex items-start">
+                  <i class="fa fa-check-circle text-success mt-1 mr-2"></i>
+                  <span>绿证与碳配额持有证明</span>
+                </li>
+                <li class="flex items-start">
+                  <i class="fa fa-check-circle text-success mt-1 mr-2"></i>
+                  <span>近12个月发电量与收益记录</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <!-- 确权流程 -->
+          <div class="lg:col-span-3">
+            <h3 class="font-medium mb-4">权属确权流程与历史</h3>
+            
+            <div class="pl-10 space-y-6 relative">
+              <!-- 时间线起始点 -->
+              <div class="absolute left-0 top-0 w-6 h-6 rounded-full bg-primary -ml-3 flex items-center justify-center text-white text-xs">
+                <i class="fa fa-start"></i>
+              </div>
+              
+              <!-- 时间线项目 -->
+              <div class="timeline-item pb-2">
+                <div class="flex justify-between mb-1">
+                  <h4 class="font-medium">资产信息采集与验证</h4>
+                  <span class="text-xs text-gray-500">2023-06-15</span>
+                </div>
+                <p class="text-sm text-gray-600">完成6000kW光伏电站资产参数、产权证明文件收集与初步验证</p>
+                <div class="mt-2 flex items-center text-xs text-success">
+                  <i class="fa fa-check-circle mr-1"></i>
+                  <span>已完成 - 验证通过</span>
+                </div>
+              </div>
+              
+              <div class="timeline-item pb-2">
+                <div class="flex justify-between mb-1">
+                  <h4 class="font-medium">收益权评估与标定</h4>
+                  <span class="text-xs text-gray-500">2023-06-20</span>
+                </div>
+                <p class="text-sm text-gray-600">采用收益法与成本法进行综合评估，确定收益权价值</p>
+                <div class="mt-2 flex items-center text-xs text-success">
+                  <i class="fa fa-check-circle mr-1"></i>
+                  <span>已完成 - 评估报告生成</span>
+                </div>
+              </div>
+              
+              <div class="timeline-item pb-2">
+                <div class="flex justify-between mb-1">
+                  <h4 class="font-medium">权属文件公证</h4>
+                  <span class="text-xs text-gray-500">2023-06-25</span>
+                </div>
+                <p class="text-sm text-gray-600">所有权属证明文件经公证处公证，确认法律效力</p>
+                <div class="mt-2 flex items-center text-xs text-success">
+                  <i class="fa fa-check-circle mr-1"></i>
+                  <span>已完成 - 公证书编号: 2023-58742</span>
+                </div>
+              </div>
+              
+              <div class="timeline-item pb-2">
+                <div class="flex justify-between mb-1">
+                  <h4 class="font-medium">区块链存证</h4>
+                  <span class="text-xs text-gray-500">2023-06-28</span>
+                </div>
+                <p class="text-sm text-gray-600">将所有确权文件与评估结果上传至区块链，生成唯一存证ID</p>
+                <div class="mt-2 flex items-center text-xs text-success">
+                  <i class="fa fa-check-circle mr-1"></i>
+                  <span>已完成 - 100%节点确认</span>
+                </div>
+              </div>
+              
+              <div class="timeline-item">
+                <div class="flex justify-between mb-1">
+                  <h4 class="font-medium">定期存证更新</h4>
+                  <span class="text-xs text-blue-500">计划 2023-07-28</span>
+                </div>
+                <p class="text-sm text-gray-600">每月自动更新发电量与收益数据，保持存证信息时效性</p>
+                <div class="mt-2 flex items-center text-xs text-blue-500">
+                  <i class="fa fa-clock-o mr-1"></i>
+                  <span>待执行 - 自动触发</span>
+                </div>
+              </div>
+            </div>
+            
+            <button class="mt-6 bg-gray-100 hover:bg-gray-200 text-dark px-4 py-2 rounded-lg transition-all text-sm flex items-center">
+              <i class="fa fa-history mr-2"></i> 查看完整确权历史
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. RWA代币化模块 -->
+    <section id="rwa-module" class="module-section">
+      <!-- 资产代币化概览 -->
+      <div class="bg-white rounded-xl shadow-soft p-6 mb-6 fade-in">
+        <h2 class="text-xl font-semibold mb-6 flex items-center">
+          <i class="fa fa-cubes text-primary mr-2"></i>电力资产代币化概览
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 card-hover">
+            <p class="text-sm text-blue-600 mb-1">已代币化资产总值</p>
+            <p class="text-2xl font-bold text-blue-800" id="rwa-tokenized-value">¥21,000,000</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center">
+              <i class="fa fa-arrow-up mr-1"></i> 较上月增长 12.3%
+            </p>
+          </div>
+          
+          <div class="bg-purple-50 p-4 rounded-lg border border-purple-100 card-hover">
+            <p class="text-sm text-purple-600 mb-1">NFT数字凭证数量</p>
+            <p class="text-2xl font-bold text-purple-800" id="rwa-nft-count">146</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center">
+              <i class="fa fa-arrow-up mr-1"></i> 本月新增 12 个
+            </p>
+          </div>
+          
+          <div class="bg-green-50 p-4 rounded-lg border border-green-100 card-hover">
+            <p class="text-sm text-green-600 mb-1">流通中资产Token</p>
+            <p class="text-2xl font-bold text-green-800" id="rwa-circulating-tokens">8,752,400</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center">
+              <i class="fa fa-arrow-up mr-1"></i> 流通率 78.3%
+            </p>
+          </div>
+          
+          <div class="bg-amber-50 p-4 rounded-lg border border-amber-100 card-hover">
+            <p class="text-sm text-amber-600 mb-1">资产包预期年化收益</p>
+            <p class="text-2xl font-bold text-amber-800" id="rwa-expected-return">8.75%</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center">
+              <i class="fa fa-arrow-up mr-1"></i> 较基准高 2.3%
+            </p>
+          </div>
+        </div>
+        
+        <div class="chart-container" style="height: 350px;">
+          <canvas id="rwa-tokenization-trend-chart"></canvas>
+        </div>
+      </div>
+      <!-- RWA代币化与NFT凭证化 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- RWA代币化资产 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 card-hover fade-in">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold flex items-center">
+              <i class="fa fa-token text-primary mr-2"></i>RWA代币化资产
+            </h2>
+            <button class="text-primary hover:text-primary/80 text-sm flex items-center transition-colors">
+              查看全部 <i class="fa fa-angle-right ml-1"></i>
+            </button>
+          </div>
+          
+          <p class="text-gray-600 text-sm mb-5">
+            将电力资产收益权转化为标准化Token，实现资产分割与流通，降低投资门槛，提高流动性。
+          </p>
+          
+          <div class="space-y-4">
+            <!-- 代币化资产1 -->
+            <div class="token-card rounded-xl p-4 flex flex-col md:flex-row gap-4 card-hover">
+              <div class="w-full md:w-24 h-24 bg-primary/5 rounded-lg flex items-center justify-center">
+                <i class="fa fa-bolt text-4xl text-primary"></i>
+              </div>
+              <div class="flex-1">
+                <div class="flex flex-wrap justify-between items-start gap-2 mb-1">
+                  <h3 class="font-medium">阳光风电一期收益权Token</h3>
+                  <span class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">流通中</span>
+                </div>
+                <p class="text-sm text-gray-500 mb-2">基于未来3年发电收益的标准化Token，每Token对应1kWh收益权</p>
+                <div class="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p class="text-xs text-gray-500">发行总量</p>
+                    <p class="font-medium">5,000,000</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">当前价格</p>
+                    <p class="font-medium text-primary">¥1.25</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">预期年化</p>
+                    <p class="font-medium text-green-600">9.2%</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 代币化资产2 -->
+            <div class="token-card rounded-xl p-4 flex flex-col md:flex-row gap-4 card-hover">
+              <div class="w-full md:w-24 h-24 bg-blue-50 rounded-lg flex items-center justify-center">
+                <i class="fa fa-sun-o text-4xl text-blue-500"></i>
+              </div>
+              <div class="flex-1">
+                <div class="flex flex-wrap justify-between items-start gap-2 mb-1">
+                  <h3 class="font-medium">蓝天光伏电站资产Token</h3>
+                  <span class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">流通中</span>
+                </div>
+                <p class="text-sm text-gray-500 mb-2">基于6000kW光伏电站资产价值的分割型Token，包含运营收益分配权</p>
+                <div class="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p class="text-xs text-gray-500">发行总量</p>
+                    <p class="font-medium">10,000,000</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">当前价格</p>
+                    <p class="font-medium text-primary">¥3.78</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">预期年化</p>
+                    <p class="font-medium text-green-600">7.8%</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 代币化资产3 -->
+            <div class="token-card rounded-xl p-4 flex flex-col md:flex-row gap-4 card-hover">
+              <div class="w-full md:w-24 h-24 bg-green-50 rounded-lg flex items-center justify-center">
+                <i class="fa fa-tint text-4xl text-green-500"></i>
+              </div>
+              <div class="flex-1">
+                <div class="flex flex-wrap justify-between items-start gap-2 mb-1">
+                  <h3 class="font-medium">江河水电收益权Token</h3>
+                  <span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">即将发行</span>
+                </div>
+                <p class="text-sm text-gray-500 mb-2">基于水电站稳定现金流的收益型Token，季度分红机制</p>
+                <div class="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p class="text-xs text-gray-500">发行总量</p>
+                    <p class="font-medium">8,000,000</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">发行价格</p>
+                    <p class="font-medium text-primary">¥2.50</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">预期年化</p>
+                    <p class="font-medium text-green-600">6.5%</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- NFT数字凭证 -->
+        <div class="bg-white rounded-xl shadow-soft p-5 card-hover fade-in">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold flex items-center">
+              <i class="fa fa-certificate text-primary mr-2"></i>NFT数字凭证
+            </h2>
+            <button class="text-primary hover:text-primary/80 text-sm flex items-center transition-colors">
+              查看全部 <i class="fa fa-angle-right ml-1"></i>
+            </button>
+          </div>
+          
+          <p class="text-gray-600 text-sm mb-5">
+            为电力资产所有权、收益权、绿证等创建唯一NFT数字凭证，实现确权、追溯与流转。
+          </p>
+          
+          <div class="space-y-4">
+            <!-- NFT凭证1 -->
+            <div class="token-card rounded-xl p-4 flex flex-col md:flex-row gap-4 card-hover">
+              <div class="w-full md:w-24 h-24 bg-purple-50 rounded-lg flex items-center justify-center">
+                <i class="fa fa-file-text-o text-4xl text-purple-500"></i>
+              </div>
+              <div class="flex-1">
+                <div class="flex flex-wrap justify-between items-start gap-2 mb-1">
+                  <h3 class="font-medium">阳光风电一期所有权NFT</h3>
+                  <span class="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded-full">已确权</span>
+                </div>
+                <p class="text-sm text-gray-500 mb-2">代表电站100%所有权的根NFT，可拆分出收益权子NFT</p>
+                <div class="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p class="text-xs text-gray-500">NFT ID</p>
+                    <p class="font-medium font-mono text-xs">0x7a3...f9c</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">发行时间</p>
+                    <p class="font-medium">2023-03-15</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">状态</p>
+                    <p class="font-medium text-success">已验证</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- NFT凭证2 -->
+            <div class="token-card rounded-xl p-4 flex flex-col md:flex-row gap-4 card-hover">
+              <div class="w-full md:w-24 h-24 bg-green-50 rounded-lg flex items-center justify-center">
+                <i class="fa fa-leaf text-4xl text-green-500"></i>
+              </div>
+              <div class="flex-1">
+                <div class="flex flex-wrap justify-between items-start gap-2 mb-1">
+                  <h3 class="font-medium">2023年度绿证NFT集合</h3>
+                  <span class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">可交易</span>
+                </div>
+                <p class="text-sm text-gray-500 mb-2">包含1,256张绿色电力证书的NFT集合，每张对应1MWh绿电</p>
+                <div class="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p class="text-xs text-gray-500">NFT ID</p>
+                    <p class="font-medium font-mono text-xs">0x2b9...e4d</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">发行时间</p>
+                    <p class="font-medium">2023-06-20</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">当前价值</p>
+                    <p class="font-medium text-primary">¥226,080</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- NFT凭证3 -->
+            <div class="token-card rounded-xl p-4 flex flex-col md:flex-row gap-4 card-hover">
+              <div class="w-full md:w-24 h-24 bg-amber-50 rounded-lg flex items-center justify-center">
+                <i class="fa fa-balance-scale text-4xl text-amber-500"></i>
+              </div>
+              <div class="flex-1">
+                <div class="flex flex-wrap justify-between items-start gap-2 mb-1">
+                  <h3 class="font-medium">碳配额NFT凭证</h3>
+                  <span class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">可交易</span>
+                </div>
+                <p class="text-sm text-gray-500 mb-2">代表8,742吨碳排放配额的NFT凭证，基于区块链存证</p>
+                <div class="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p class="text-xs text-gray-500">NFT ID</p>
+                    <p class="font-medium font-mono text-xs">0x9c7...a3f</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">发行时间</p>
+                    <p class="font-medium">2023-01-10</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">当前价值</p>
+                    <p class="font-medium text-primary">¥542,004</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 资产打包与未来收益 -->
+      <div class="bg-white rounded-xl shadow-soft p-5 mb-6 fade-in">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+          <h2 class="text-lg font-semibold flex items-center mb-3 md:mb-0">
+            <i class="fa fa-cube text-primary mr-2"></i>资产打包与未来收益预测
+          </h2>
+          
+          <div class="flex items-center space-x-3">
+            <div class="relative">
+              <select id="rwa-asset-package-period" class="appearance-none bg-gray-100 border-0 pl-3 pr-8 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="1y">1年预测</option>
+                <option value="3y" selected>3年预测</option>
+                <option value="5y">5年预测</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                <i class="fa fa-chevron-down text-xs"></i>
+              </div>
+            </div>
+            
+            <button class="bg-primary hover:bg-primary/90 text-white px-3 py-2 rounded-lg transition-all text-sm flex items-center">
+              <i class="fa fa-download mr-1"></i> 下载数据包
+            </button>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- 资产包信息 -->
+          <div class="lg:col-span-1">
+            <div class="gradient-bg p-5 rounded-xl mb-5">
+              <h3 class="font-medium mb-4">新能源资产包 #P202306</h3>
+              
+              <div class="space-y-3 mb-4">
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-600">资产组成</span>
+                  <span class="text-sm font-medium">3个风电场 + 2个光伏电站</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-600">总装机容量</span>
+                  <span class="text-sm font-medium">150 MW</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-600">打包规模</span>
+                  <span class="text-sm font-medium">¥1.2亿</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-600">预期年化收益</span>
+                  <span class="text-sm font-medium text-green-600">8.75%</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-600">风险评级</span>
+                  <span class="text-sm font-medium">AA级</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-600">发行状态</span>
+                  <span class="text-sm font-medium text-blue-600">预约中</span>
+                </div>
+              </div>
+              
+              <button class="w-full bg-primary hover:bg-primary/90 text-white py-2.5 rounded-lg transition-all text-sm flex items-center justify-center">
+                <i class="fa fa-shopping-cart mr-1"></i> 预约认购
+              </button>
+            </div>
+            
+            <div class="bg-gray-50 p-5 rounded-xl">
+              <h3 class="font-medium mb-3">收益分配结构</h3>
+              <div class="h-48">
+                <canvas id="rwa-revenue-distribution-chart"></canvas>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 未来收益预测 -->
+          <div class="lg:col-span-2">
+            <h3 class="font-medium mb-4">未来3年收益预测与现金流</h3>
+            
+            <div class="mb-6">
+              <div class="chart-container">
+                <canvas id="rwa-future-revenue-chart"></canvas>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="bg-gray-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-500 mb-1">第一年预期收益</p>
+                <p class="text-xl font-bold text-primary">¥6,564,337.43</p>
+                <p class="text-xs text-gray-500">年化收益率: 8.75%</p>
+              </div>
+              <div class="bg-gray-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-500 mb-1">第二年预期收益</p>
+                <p class="text-xl font-bold text-primary">¥6,531,515.75</p>
+                <p class="text-xs text-gray-500">年化收益率: 9.01%</p>
+              </div>
+              <div class="bg-gray-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-500 mb-1">第三年预期收益</p>
+                <p class="text-xl font-bold text-primary">¥6,498,858.17</p>
+                <p class="text-xs text-gray-500">年化收益率: 9.28%</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. 绿色ABS模块 -->
+    <section id="abs-module" class="module-section">
+      <!-- 绿色ABS发行概览 -->
+      <div class="bg-white rounded-xl shadow-soft p-6 mb-6 fade-in">
+        <h2 class="text-xl font-semibold mb-6 flex items-center">
+          <i class="fa fa-certificate text-green-600 mr-2"></i>数据驱动型绿色资产证券(ABS)概览
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-green-50 p-4 rounded-lg border border-green-100 card-hover">
+            <p class="text-sm text-green-600 mb-1">已发行绿色ABS规模</p>
+            <p class="text-2xl font-bold text-green-800" id="abs-issued-value">¥5.28亿</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center">
+              <i class="fa fa-arrow-up mr-1"></i> 本年度增长 35.7%
+            </p>
+          </div>
+          
+          <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 card-hover">
+            <p class="text-sm text-blue-600 mb-1">在发ABS产品数量</p>
+            <p class="text-2xl font-bold text-blue-800" id="active-abs-count">4</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center">
+              <i class="fa fa-arrow-up mr-1"></i> 本月新增 1 只
+            </p>
+          </div>
+          
+          <div class="bg-purple-50 p-4 rounded-lg border border-purple-100 card-hover">
+            <p class="text-sm text-purple-600 mb-1">累计投资人数量</p>
+            <p class="text-2xl font-bold text-purple-800" id="investor-count">2,845</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center">
+              <i class="fa fa-arrow-up mr-1"></i> 较上月增长 12.3%
+            </p>
+          </div>
+          
+          <div class="bg-amber-50 p-4 rounded-lg border border-amber-100 card-hover">
+            <p class="text-sm text-amber-600 mb-1">平均发行周期</p>
+            <p class="text-2xl font-bold text-amber-800" id="avg-issuance-period">48天</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center">
+              <i class="fa fa-arrow-down mr-1"></i> 较行业平均快 15天
+            </p>
+          </div>
+        </div>
+        
+        <div class="chart-container" style="height: 350px;">
+          <canvas id="abs-issuance-trend-chart"></canvas>
+        </div>
+      </div>
+      
+      <!-- 正在发行的ABS产品 -->
+      <div class="bg-white rounded-xl shadow-soft p-6 mb-6 fade-in">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-semibold flex items-center">
+            <i class="fa fa-rocket text-green-600 mr-2"></i>正在发行的绿色ABS产品
+          </h2>
+          <div class="flex space-x-2">
+            <div class="relative">
+              <select id="abs-filter" class="appearance-none bg-gray-100 border-0 pl-3 pr-8 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50">
+                <option value="all" selected>全部产品</option>
+                <option value="wind">风电ABS</option>
+                <option value="solar">光伏ABS</option>
+                <option value="hydro">水电ABS</option>
+                <option value="mixed">混合能源ABS</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                <i class="fa fa-chevron-down text-xs"></i>
+              </div>
+            </div>
+            <button class="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded-lg transition-all text-sm flex items-center">
+              <i class="fa fa-calendar mr-1"></i> 即将发行
+            </button>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- ABS产品1 -->
+          <div class="abs-card rounded-xl overflow-hidden card-hover">
+            <div class="p-5">
+              <div class="flex flex-wrap justify-between items-start gap-2 mb-4">
+                <div>
+                  <h3 class="font-semibold text-lg">阳光风电二期资产支持证券</h3>
+                  <p class="text-sm text-gray-500 mt-1">优先级 | 期限 2年 | 评级 AAA</p>
+                </div>
+                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">发行中</span>
+              </div>
+              
+              <div class="grid grid-cols-3 gap-3 mb-4 text-sm">
+                <div>
+                  <p class="text-xs text-gray-500">发行规模</p>
+                  <p class="font-medium">¥2.5亿</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">预期收益率</p>
+                  <p class="font-medium text-green-600">5.85%</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">发行进度</p>
+                  <p class="font-medium text-blue-600" id="abs-progress-1">68%</p>
+                </div>
+              </div>
+              
+              <div class="mb-4">
+                <div class="flex justify-between text-xs mb-1">
+                  <span>发行进度</span>
+                  <span id="abs-progress-1-label">已认购 ¥1.7亿 / 总 ¥2.5亿</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                  <div class="progress-bar" id="abs-progress-bar-1" style="width: 68%"></div>
+                </div>
+              </div>
+              
+              <div class="flex flex-wrap justify-between items-center gap-3">
+                <div class="text-sm text-gray-500">
+                  <i class="fa fa-clock-o mr-1"></i> 剩余时间: 12天8小时
+                </div>
+                <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-all text-sm flex items-center">
+                  <i class="fa fa-shopping-cart mr-1"></i> 立即认购
+                </button>
+              </div>
+            </div>
+            
+            <div class="bg-gray-50 px-5 py-3 border-t border-gray-100">
+              <div class="flex flex-wrap justify-between items-center gap-2 text-sm">
+                <div class="flex items-center">
+                  <i class="fa fa-line-chart text-blue-500 mr-1"></i>
+                  <span>基础资产: 150MW风电场未来收益</span>
+                </div>
+                <a href="#" class="text-primary hover:text-primary/80 flex items-center">
+                  查看详情 <i class="fa fa-angle-right ml-1"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+          
+          <!-- ABS产品2 -->
+          <div class="abs-card rounded-xl overflow-hidden card-hover">
+            <div class="p-5">
+              <div class="flex flex-wrap justify-between items-start gap-2 mb-4">
+                <div>
+                  <h3 class="font-semibold text-lg">蓝天光伏分布式资产支持证券</h3>
+                  <p class="text-sm text-gray-500 mt-1">优先级 | 期限 1.5年 | 评级 AA+</p>
+                </div>
+                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">发行中</span>
+              </div>
+              
+              <div class="grid grid-cols-3 gap-3 mb-4 text-sm">
+                <div>
+                  <p class="text-xs text-gray-500">发行规模</p>
+                  <p class="font-medium">¥1.8亿</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">预期收益率</p>
+                  <p class="font-medium text-green-600">5.45%</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">发行进度</p>
+                  <p class="font-medium text-blue-600" id="abs-progress-2">82%</p>
+                </div>
+              </div>
+              
+              <div class="mb-4">
+                <div class="flex justify-between text-xs mb-1">
+                  <span>发行进度</span>
+                  <span id="abs-progress-2-label">已认购 ¥1.48亿 / 总 ¥1.8亿</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                  <div class="progress-bar" id="abs-progress-bar-2" style="width: 82%"></div>
+                </div>
+              </div>
+              
+              <div class="flex flex-wrap justify-between items-center gap-3">
+                <div class="text-sm text-gray-500">
+                  <i class="fa fa-clock-o mr-1"></i> 剩余时间: 5天14小时
+                </div>
+                <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-all text-sm flex items-center">
+                  <i class="fa fa-shopping-cart mr-1"></i> 立即认购
+                </button>
+              </div>
+            </div>
+            
+            <div class="bg-gray-50 px-5 py-3 border-t border-gray-100">
+              <div class="flex flex-wrap justify-between items-center gap-2 text-sm">
+                <div class="flex items-center">
+                  <i class="fa fa-line-chart text-blue-500 mr-1"></i>
+                  <span>基础资产: 12个分布式光伏电站收益</span>
+                </div>
+                <a href="#" class="text-primary hover:text-primary/80 flex items-center">
+                  查看详情 <i class="fa fa-angle-right ml-1"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 投资人认购与数据分析 -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <!-- 投资人认购分析 -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-soft p-6 fade-in">
+          <h2 class="text-xl font-semibold mb-6 flex items-center">
+            <i class="fa fa-pie-chart text-green-600 mr-2"></i>投资人认购数据分析
+          </h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <h3 class="text-base font-medium mb-3">投资人类型分布</h3>
+              <div class="h-64">
+                <canvas id="abs-investor-type-chart"></canvas>
+              </div>
+            </div>
+            
+            <div>
+              <h3 class="text-base font-medium mb-3">认购金额分布</h3>
+              <div class="h-64">
+                <canvas id="abs-subscription-amount-chart"></canvas>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <h3 class="text-base font-medium mb-3">历史认购趋势</h3>
+            <div class="h-64">
+              <canvas id="abs-subscription-trend-chart"></canvas>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 资产池表现与风险评估 -->
+        <div class="bg-white rounded-xl shadow-soft p-6 fade-in">
+          <h2 class="text-xl font-semibold mb-6 flex items-center">
+            <i class="fa fa-shield text-green-600 mr-2"></i>资产池表现与风险评估
+          </h2>
+          
+          <div class="gradient-bg p-5 rounded-xl mb-5">
+            <h3 class="font-medium mb-4">基础资产池关键指标</h3>
+            
+            <div class="space-y-4">
+              <div>
+                <div class="flex justify-between text-sm mb-1">
+                  <span class="text-gray-600">资产池平均收益率</span>
+                  <span class="font-medium">8.25%</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-2.5">
+                  <div class="bg-green-600 h-2.5 rounded-full" style="width: 82%"></div>
+                </div>
+              </div>
+              
+              <div>
+                <div class="flex justify-between text-sm mb-1">
+                  <span class="text-gray-600">资产分散度</span>
+                  <span class="font-medium">92%</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-2.5">
+                  <div class="bg-blue-600 h-2.5 rounded-full" style="width: 92%"></div>
+                </div>
+              </div>
+              
+              <div>
+                <div class="flex justify-between text-sm mb-1">
+                  <span class="text-gray-600">历史违约率</span>
+                  <span class="font-medium">0.00%</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-2.5">
+                  <div class="bg-gray-400 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+              </div>
+              
+              <div>
+                <div class="flex justify-between text-sm mb-1">
+                  <span class="text-gray-600">现金流覆盖倍数</span>
+                  <span class="font-medium">1.45x</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-2.5">
+                  <div class="bg-purple-600 h-2.5 rounded-full" style="width: 72%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mb-5">
+            <h3 class="font-medium mb-3">数据驱动的风险评估</h3>
+            
+            <div class="space-y-3">
+              <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                  <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                    <i class="fa fa-check text-green-600"></i>
+                  </div>
+                  <span class="text-sm">发电预测准确度</span>
+                </div>
+                <span class="text-sm font-medium">94.7%</span>
+              </div>
+              
+              <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                  <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                    <i class="fa fa-check text-green-600"></i>
+                  </div>
+                  <span class="text-sm">资产质量评分</span>
+                </div>
+                <span class="text-sm font-medium">92/100</span>
+              </div>
+              
+              <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                  <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center mr-3">
+                    <i class="fa fa-exclamation text-yellow-600"></i>
+                  </div>
+                  <span class="text-sm">市场波动风险</span>
+                </div>
+                <span class="text-sm font-medium">中低</span>
+              </div>
+              
+              <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                  <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                    <i class="fa fa-check text-green-600"></i>
+                  </div>
+                  <span class="text-sm">政策合规性</span>
+                </div>
+                <span class="text-sm font-medium">完全合规</span>
+              </div>
+              
+              <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                  <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                    <i class="fa fa-info text-blue-600"></i>
+                  </div>
+                  <span class="text-sm">综合风险评级</span>
+                </div>
+                <span class="text-sm font-medium text-blue-600">A-</span>
+              </div>
+            </div>
+          </div>
+          
+          <button class="w-full bg-gray-100 hover:bg-gray-200 text-dark py-2.5 rounded-lg transition-all text-sm flex items-center justify-center">
+            <i class="fa fa-file-text-o mr-1"></i> 查看完整风险评估报告
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+  
+  <!-- 页脚 -->
+  <footer class="bg-white border-t border-gray-200 mt-8 py-6">
+    <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
+      <p>© 2023 新能源综合管理平台</p>
+      <p class="mt-1">总装机容量: 6000kW | 年预期收益: ¥6,564,337.43 | 资产估值: ¥21,000,000</p>
+    </div>
+  </footer>
+
+  <script>
+    // 全局状态管理
+    const appState = {
+      currentModule: 'weather',
+      lastUpdate: new Date(),
+      charts: {} // 存储图表实例
+    };
+
+    // 模块切换功能
+    function switchModule(moduleId) {
+      // 隐藏所有模块
+      document.querySelectorAll('.module-section').forEach(section => {
+        section.classList.remove('active');
+      });
+      
+      // 重置所有按钮样式
+      document.querySelectorAll('.module-btn').forEach(btn => {
+        btn.classList.remove('bg-primary', 'text-white');
+        btn.classList.add('bg-gray-100', 'hover:bg-gray-200', 'text-dark');
+      });
+      
+      // 显示目标模块
+      const targetModule = document.getElementById(`${moduleId}-module`);
+      if (targetModule) {
+        targetModule.classList.add('active');
+      }
+      
+      // 设置当前按钮为激活状态
+      const activeBtn = document.querySelector(`[data-module="${moduleId}"]`);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-gray-100', 'hover:bg-gray-200', 'text-dark');
+        activeBtn.classList.add('bg-primary', 'text-white');
+      }
+      
+      appState.currentModule = moduleId;
+      // 初始化当前模块图表
+      initCurrentModuleCharts();
+    }
+
+    // 更新全局最后更新时间
+    function updateGlobalLastUpdateTime() {
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const seconds = now.getSeconds().toString().padStart(2, '0');
+      
+      document.getElementById('global-last-update').textContent = `最后更新: ${hours}:${minutes}:${seconds}`;
+      appState.lastUpdate = now;
+    }
+
+    // 全局刷新功能
+    function globalRefresh() {
+      const refreshIcon = document.getElementById('global-refresh-btn').querySelector('i');
+      refreshIcon.classList.add('fa-spin');
+      
+      setTimeout(() => {
+        // 刷新当前模块图表
+        refreshCurrentModuleCharts();
+        updateGlobalLastUpdateTime();
+        refreshIcon.classList.remove('fa-spin');
+      }, 1000);
+    }
+
+    // 初始化当前激活模块的图表
+    function initCurrentModuleCharts() {
+      const currentModule = appState.currentModule;
+      
+      // 先销毁所有现有图表
+      Object.values(appState.charts).forEach(chart => {
+        if (chart && typeof chart.destroy === 'function') {
+          chart.destroy();
+        }
+      });
+      appState.charts = {};
+      
+      // 初始化对应模块的图表
+      switch(currentModule) {
+        case 'weather':
+          initWeatherCharts();
+          break;
+        case 'forecast':
+          initForecastCharts();
+          break;
+        case 'revenue':
+          initRevenueCharts();
+          break;
+        case 'rwa':
+          initRwaCharts();
+          break;
+        case 'abs':
+          initAbsCharts();
+          break;
+      }
+    }
+
+    // 刷新当前模块图表
+    function refreshCurrentModuleCharts() {
+      const currentModule = appState.currentModule;
+      
+      switch(currentModule) {
+        case 'weather':
+          refreshWeatherCharts();
+          break;
+        case 'forecast':
+          refreshForecastCharts();
+          break;
+        case 'revenue':
+          refreshRevenueCharts();
+          break;
+        case 'rwa':
+          refreshRwaCharts();
+          break;
+        case 'abs':
+          refreshAbsCharts();
+          break;
+      }
+    }
+
+    // ==================== 气象模块图表 ====================
+    function initWeatherCharts() {
+      const ctx = document.getElementById('weather-trend-chart').getContext('2d');
+      
+      appState.charts.weatherTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+          datasets: [{
+            label: '杭州萧山平均温度 (°C)',
+            data: [5, 7, 12, 18, 23, 26, 29, 28, 24, 18, 12, 7],
+            borderColor: '#165DFF',
+            backgroundColor: 'rgba(22, 93, 255, 0.1)',
+            tension: 0.3,
+            fill: true
+          }, {
+            label: '杭州萧山平均太阳光照强度 (W/m²)',
+            data: [180, 250, 380, 520, 650, 720, 850, 820, 680, 520, 320, 200],
+            borderColor: '#F59E0B',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            tension: 0.3,
+            fill: true,
+            yAxisID: 'y1'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { title: { display: true, text: '温度 (°C)' } },
+            y1: { position: 'right', title: { display: true, text: '太阳光照强度 (W/m²)' }, grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+      
+      // 初始化气象地图标记
+      initWeatherMarkers();
+    }
+    
+    function refreshWeatherCharts() {
+      if (!appState.charts.weatherTrendChart) return;
+      
+      // 模拟温度数据波动
+      const tempData = appState.charts.weatherTrendChart.data.datasets[0].data.map(val => 
+        Math.round((val + (Math.random() * 2 - 1)) * 10) / 10
+      );
+      // 模拟光照数据波动
+      const solarData = appState.charts.weatherTrendChart.data.datasets[1].data.map(val => 
+        Math.round(val + (Math.random() * 50 - 25))
+      );
+      
+      appState.charts.weatherTrendChart.data.datasets[0].data = tempData;
+      appState.charts.weatherTrendChart.data.datasets[1].data = solarData;
+      appState.charts.weatherTrendChart.update();
+    }
+    
+    // 初始化气象地图标记
+    function initWeatherMarkers() {
+      const container = document.getElementById('weather-city-markers-container');
+      container.innerHTML = '';
+      
+      // 杭州萧山标记
+      const marker = document.createElement('div');
+      marker.className = 'city-marker';
+      marker.style.left = '61.5%';
+      marker.style.top = '54%';
+      marker.style.backgroundColor = getTemperatureColor(25.5);
+      marker.dataset.city = '杭州萧山';
+      marker.style.width = '12px';
+      marker.style.height = '12px';
+      marker.style.borderRadius = '50%';
+      marker.style.position = 'absolute';
+      marker.style.zIndex = '10';
+      
+      // 标记标签
+      const label = document.createElement('div');
+      label.className = 'city-label';
+      label.style.left = '63%';
+      label.style.top = '52%';
+      label.textContent = '杭州萧山 25.5°C';
+      label.style.position = 'absolute';
+      label.style.backgroundColor = 'white';
+      label.style.padding = '2px 6px';
+      label.style.borderRadius = '4px';
+      label.style.fontSize = '12px';
+      label.style.zIndex = '10';
+      
+      // 点击事件
+      marker.addEventListener('click', function() {
+        showCityDetail(this.dataset.city);
+      });
+      
+      container.appendChild(marker);
+      container.appendChild(label);
+    }
+    
+    // 根据温度获取标记颜色
+    function getTemperatureColor(temp) {
+      if (temp < 18) return '#3B82F6';
+      if (temp < 25) return '#FBBF24';
+      return '#EF4444';
+    }
+    
+    // 显示城市详情
+    function showCityDetail(cityName) {
+      const detailContainer = document.getElementById('weather-city-detail');
+      detailContainer.innerHTML = `
+        <div class="text-center mb-4">
+          <h3 class="text-xl font-bold">${cityName}</h3>
+          <div class="flex justify-center items-baseline mt-2">
+            <span class="text-4xl font-bold text-primary">25.5</span>
+            <span class="text-xl ml-1">°C</span>
+          </div>
+          <p class="text-gray-500 mt-1">温暖，阳光充足</p>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-50 p-3 rounded-lg">
+            <p class="text-sm text-gray-500">湿度</p>
+            <p class="font-semibold">63%</p>
+          </div>
+          <div class="bg-gray-50 p-3 rounded-lg">
+            <p class="text-sm text-gray-500">风速</p>
+            <p class="font-semibold">3.0 km/h</p>
+          </div>
+          <div class="bg-gray-50 p-3 rounded-lg">
+            <p class="text-sm text-gray-500">太阳光照强度</p>
+            <p class="font-semibold">580 W/m²</p>
+          </div>
+          <div class="bg-gray-50 p-3 rounded-lg">
+            <p class="text-sm text-gray-500">空气质量</p>
+            <p class="font-semibold text-green-600">优</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // ==================== 发电预测模块图表 ====================
+    function initForecastCharts() {
+      // 主预测图表
+      const mainCtx = document.getElementById('forecast-main-chart').getContext('2d');
+      const forecastData = generateForecastData(7);
+      
+      appState.charts.forecastMainChart = new Chart(mainCtx, {
+        type: 'line',
+        data: {
+          labels: forecastData.labels,
+          datasets: [
+            {
+              label: '预测发电量 (MW)',
+              data: forecastData.forecastData,
+              borderColor: '#165DFF',
+              backgroundColor: 'rgba(22, 93, 255, 0.05)',
+              borderWidth: 2,
+              tension: 0.4,
+              fill: true
+            },
+            {
+              label: '实际发电量 (MW)',
+              data: forecastData.actualData,
+              borderColor: '#E5E7EB',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              tension: 0.4,
+              fill: false
+            },
+            {
+              label: '温度影响因子',
+              data: forecastData.temperatureData,
+              borderColor: '#36CFC9',
+              backgroundColor: 'transparent',
+              borderWidth: 1.5,
+              tension: 0.4,
+              fill: false,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { title: { display: true, text: '发电量 (MW)' } },
+            y1: { position: 'right', title: { display: true, text: '温度影响' }, grid: { display: false } }
+          }
+        }
+      });
+      
+      // 误差分析图表
+      const errorCtx = document.getElementById('forecast-error-chart').getContext('2d');
+      const errorData = generateErrorData();
+      
+      appState.charts.forecastErrorChart = new Chart(errorCtx, {
+        type: 'bar',
+        data: {
+          labels: errorData.categories,
+          datasets: [{
+            label: '平均预测误差 (MW)',
+            data: errorData.errors,
+            backgroundColor: errorData.errors.map(v => 
+              v < 3 ? 'rgba(54, 207, 201, 0.7)' : v < 6 ? 'rgba(22, 93, 255, 0.7)' : 'rgba(255, 125, 0, 0.7)'
+            ),
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, title: { display: true, text: '误差 (MW)' } } }
+        }
+      });
+      
+      // 气象因素影响图表
+      const factorsCtx = document.getElementById('forecast-factors-chart').getContext('2d');
+      const factorsData = generateInfluenceFactors();
+      
+      appState.charts.forecastFactorsChart = new Chart(factorsCtx, {
+        type: 'radar',
+        data: {
+          labels: factorsData.factors,
+          datasets: [{
+            label: '对发电量的影响程度',
+            data: factorsData.influence,
+            backgroundColor: 'rgba(22, 93, 255, 0.2)',
+            borderColor: '#165DFF',
+            pointBackgroundColor: '#165DFF'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { r: { suggestedMin: 0, suggestedMax: 100 } }
+        }
+      });
+    }
+    
+    function refreshForecastCharts() {
+      if (!appState.charts.forecastMainChart) return;
+      
+      // 更新主预测图表
+      const newForecastData = generateForecastData(7);
+      appState.charts.forecastMainChart.data.labels = newForecastData.labels;
+      appState.charts.forecastMainChart.data.datasets[0].data = newForecastData.forecastData;
+      appState.charts.forecastMainChart.data.datasets[1].data = newForecastData.actualData;
+      appState.charts.forecastMainChart.data.datasets[2].data = newForecastData.temperatureData;
+      appState.charts.forecastMainChart.update();
+    }
+    
+    // 生成预测数据
+    function generateForecastData(days = 7) {
+      const hoursPerDay = 24;
+      const totalPoints = days * hoursPerDay;
+      const labels = [];
+      const forecastData = [];
+      const actualData = [];
+      const temperatureData = [];
+      
+      for (let i = 0; i < totalPoints; i++) {
+        const date = new Date();
+        date.setHours(date.getHours() - 24 + i);
+        labels.push(`${date.getDate()}日 ${date.getHours()}:00`);
+        
+        const hour = i % 24;
+        let baseValue = 50 + Math.sin((hour + 6) / 24 * Math.PI * 2) * 30;
+        const randomFactor = (Math.random() - 0.5) * 15;
+        const dayFactor = Math.sin(i / totalPoints * Math.PI) * 10;
+        
+        const forecastValue = baseValue + randomFactor + dayFactor;
+        forecastData.push(Math.max(0, Math.round(forecastValue * 10) / 10));
+        
+        const actualValue = forecastValue + (Math.random() - 0.5) * 8;
+        actualData.push(Math.max(0, Math.round(actualValue * 10) / 10));
+        
+        const tempValue = 20 + Math.sin((hour - 12) / 24 * Math.PI * 2) * 8 + (Math.random() - 0.5) * 4;
+        temperatureData.push(Math.round(tempValue * 10) / 10 * 2);
+      }
+      
+      return { labels, forecastData, actualData, temperatureData };
+    }
+    
+    // 生成误差数据
+    function generateErrorData() {
+      const categories = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'];
+      const errors = categories.map(() => Math.round(Math.random() * 5 + 1) / 10 * 10);
+      return { categories, errors };
+    }
+    
+    // 生成影响因素数据
+    function generateInfluenceFactors() {
+      const factors = ['风速', '温度', '湿度', '气压', '日照', '降水概率'];
+      const influence = factors.map(() => Math.round(Math.random() * 40 + 10));
+      return { factors, influence };
+    }
+
+    // ==================== 电力收益模块图表 ====================
+    function initRevenueCharts() {
+      // 收益趋势图表
+      const trendCtx = document.getElementById('revenue-trend-chart').getContext('2d');
+      const trendData = generateRevenueTrendData();
+      
+      appState.charts.revenueTrendChart = new Chart(trendCtx, {
+        type: 'line',
+        data: {
+          labels: trendData.months,
+          datasets: [
+            {
+              label: '总收益',
+              data: trendData.totalRevenue,
+              borderColor: '#165DFF',
+              backgroundColor: 'rgba(22, 93, 255, 0.05)',
+              borderWidth: 2,
+              tension: 0.4,
+              fill: true
+            },
+            {
+              label: '基础售电',
+              data: trendData.powerSales,
+              borderColor: '#36CFC9',
+              borderWidth: 1.5,
+              tension: 0.4,
+              fill: false
+            },
+            {
+              label: '峰谷套利',
+              data: trendData.peakValley,
+              borderColor: '#FF7D00',
+              borderWidth: 1.5,
+              tension: 0.4,
+              fill: false
+            },
+            {
+              label: '绿证与碳配额',
+              data: trendData.greenCert,
+              borderColor: '#52C41A',
+              borderWidth: 1.5,
+              tension: 0.4,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { title: { display: true, text: '收益 (元)' } } }
+        }
+      });
+      
+      // 峰谷套利图表
+      const peakCtx = document.getElementById('revenue-peak-valley-chart').getContext('2d');
+      const peakData = generatePeakValleyData();
+      
+      appState.charts.revenuePeakValleyChart = new Chart(peakCtx, {
+        type: 'bar',
+        data: {
+          labels: peakData.hours,
+          datasets: [
+            {
+              label: '实际发电量 (MW)',
+              data: peakData.generation,
+              backgroundColor: 'rgba(134, 144, 156, 0.2)',
+              borderColor: 'rgba(134, 144, 156, 0.8)',
+              yAxisID: 'y'
+            },
+            {
+              label: '优化上网电量 (MW)',
+              data: peakData.optimized,
+              backgroundColor: 'rgba(22, 93, 255, 0.6)',
+              borderColor: 'rgba(22, 93, 255, 1)',
+              yAxisID: 'y'
+            },
+            {
+              label: '电价 (元/kWh)',
+              data: peakData.prices,
+              type: 'line',
+              borderColor: '#FF7D00',
+              backgroundColor: 'transparent',
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { title: { display: true, text: '电量 (MW)' } },
+            y1: { position: 'right', title: { display: true, text: '电价 (元/kWh)' }, grid: { display: false } }
+          }
+        }
+      });
+      
+      // 碳市场图表
+      const carbonCtx = document.getElementById('revenue-carbon-market-chart').getContext('2d');
+      const carbonData = generateCarbonMarketData();
+      
+      appState.charts.revenueCarbonMarketChart = new Chart(carbonCtx, {
+        type: 'line',
+        data: {
+          labels: carbonData.days,
+          datasets: [
+            {
+              label: '绿证价格 (元/张)',
+              data: carbonData.greenCertPrices,
+              borderColor: '#52C41A',
+              backgroundColor: 'transparent',
+              tension: 0.4,
+              yAxisID: 'y'
+            },
+            {
+              label: '碳配额价格 (元/吨)',
+              data: carbonData.carbonPrices,
+              borderColor: '#165DFF',
+              backgroundColor: 'transparent',
+              tension: 0.4,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { title: { display: true, text: '绿证价格 (元)' }, beginAtZero: false },
+            y1: { position: 'right', title: { display: true, text: '碳价 (元)' }, beginAtZero: false, grid: { display: false } }
+          }
+        }
+      });
+    }
+    
+    function refreshRevenueCharts() {
+      if (!appState.charts.revenueTrendChart) return;
+      
+      // 更新收益趋势图表
+      const newTrendData = generateRevenueTrendData();
+      appState.charts.revenueTrendChart.data.datasets[0].data = newTrendData.totalRevenue;
+      appState.charts.revenueTrendChart.data.datasets[1].data = newTrendData.powerSales;
+      appState.charts.revenueTrendChart.data.datasets[2].data = newTrendData.peakValley;
+      appState.charts.revenueTrendChart.data.datasets[3].data = newTrendData.greenCert;
+      appState.charts.revenueTrendChart.update();
+    }
+    
+    // 生成收益趋势数据
+    function generateRevenueTrendData() {
+      const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+      const baseRevenue = 6000000;
+      const totalRevenue = [];
+      const powerSales = [];
+      const peakValley = [];
+      const greenCert = [];
+      
+      months.forEach((month, i) => {
+        const seasonFactor = 1 + Math.sin((i / 12) * Math.PI * 2) * 0.2;
+        const randomFactor = 1 + (Math.random() - 0.5) * 0.1;
+        const base = Math.round(baseRevenue * seasonFactor * randomFactor);
+        
+        powerSales.push(Math.round(base * 0.7));
+        peakValley.push(Math.round(base * 0.15));
+        greenCert.push(Math.round(base * 0.15));
+        totalRevenue.push(powerSales[i] + peakValley[i] + greenCert[i]);
+      });
+      
+      return { months, totalRevenue, powerSales, peakValley, greenCert };
+    }
+    
+    // 生成峰谷套利数据
+    function generatePeakValleyData() {
+      const hours = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'];
+      const prices = [0.35, 0.32, 0.58, 0.65, 0.52, 0.72, 0.35];
+      const generation = [45, 48, 62, 55, 70, 65, 45];
+      const optimized = [65, 70, 30, 25, 60, 40, 65];
+      return { hours, prices, generation, optimized };
+    }
+    
+    // 生成碳市场数据
+    function generateCarbonMarketData() {
+      const days = Array.from({length: 14}, (_, i) => `${i+1}日`);
+      const greenCertPrices = days.map(() => 160 + Math.random() * 40);
+      const carbonPrices = days.map(() => 50 + Math.random() * 20);
+      return { days, greenCertPrices, carbonPrices };
+    }
+
+    // ==================== RWA代币化模块图表 ====================
+    function initRwaCharts() {
+      // 代币化趋势图表
+      const trendCtx = document.getElementById('rwa-tokenization-trend-chart').getContext('2d');
+      const trendData = generateTokenizationTrendData();
+      
+      appState.charts.rwaTokenizationTrendChart = new Chart(trendCtx, {
+        type: 'line',
+        data: {
+          labels: trendData.months,
+          datasets: [
+            {
+              label: '代币化资产总值 (百万元)',
+              data: trendData.tokenizedAssets.map(v => v / 1000000),
+              borderColor: '#165DFF',
+              backgroundColor: 'rgba(22, 93, 255, 0.05)',
+              borderWidth: 2,
+              tension: 0.4,
+              fill: true,
+              yAxisID: 'y'
+            },
+            {
+              label: 'NFT数量',
+              data: trendData.nftCount,
+              borderColor: '#9C27B0',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              tension: 0.4,
+              fill: false,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { title: { display: true, text: '代币化资产总值 (百万元)' } },
+            y1: { position: 'right', title: { display: true, text: 'NFT数量' }, grid: { display: false } }
+          }
+        }
+      });
+      
+      // 收益分配图表
+      const distributionCtx = document.getElementById('rwa-revenue-distribution-chart').getContext('2d');
+      appState.charts.rwaRevenueDistributionChart = new Chart(distributionCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['优先级收益', '次级收益', '管理费用', '风险准备金'],
+          datasets: [{
+            data: [65, 20, 10, 5],
+            backgroundColor: [
+              'rgba(34, 197, 94, 0.7)',
+              'rgba(22, 93, 255, 0.7)',
+              'rgba(134, 144, 156, 0.7)',
+              'rgba(245, 158, 11, 0.7)'
+            ],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '70%'
+        }
+      });
+      
+      // 未来收益图表
+      const futureCtx = document.getElementById('rwa-future-revenue-chart').getContext('2d');
+      appState.charts.rwaFutureRevenueChart = new Chart(futureCtx, {
+        type: 'bar',
+        data: {
+          labels: ['Q1', 'Q2', 'Q3', 'Q4', 'Q1', 'Q2', 'Q3', 'Q4', 'Q1', 'Q2', 'Q3', 'Q4'],
+          datasets: [{
+            label: '2023年预期收益 (万元)',
+            data: [152, 168, 175, 160, 0, 0, 0, 0, 0, 0, 0, 0],
+            backgroundColor: 'rgba(22, 93, 255, 0.7)'
+          }, {
+            label: '2024年预期收益 (万元)',
+            data: [0, 0, 0, 0, 165, 178, 185, 170, 0, 0, 0, 0],
+            backgroundColor: 'rgba(54, 207, 201, 0.7)'
+          }, {
+            label: '2025年预期收益 (万元)',
+            data: [0, 0, 0, 0, 0, 0, 0, 0, 175, 188, 195, 180],
+            backgroundColor: 'rgba(34, 197, 94, 0.7)'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { title: { display: true, text: '收益 (万元)' } } }
+        }
+      });
+    }
+    
+    function refreshRwaCharts() {
+      if (!appState.charts.rwaTokenizationTrendChart) return;
+      
+      // 更新代币化趋势图表
+      const newTrendData = generateTokenizationTrendData();
+      appState.charts.rwaTokenizationTrendChart.data.datasets[0].data = newTrendData.tokenizedAssets.map(v => v / 1000000);
+      appState.charts.rwaTokenizationTrendChart.data.datasets[1].data = newTrendData.nftCount;
+      appState.charts.rwaTokenizationTrendChart.update();
+    }
+    
+    // 生成代币化趋势数据
+    function generateTokenizationTrendData() {
+      const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+      const tokenizedAssets = [];
+      const nftCount = [];
+      
+      let baseValue = 21000000;
+      let baseNft = 146;
+      
+      months.forEach(() => {
+        baseValue = baseValue * (1 + 0.08 + (Math.random() - 0.5) * 0.05);
+        tokenizedAssets.push(Math.round(baseValue));
+        
+        baseNft = baseNft + 1 + Math.random() * 2;
+        nftCount.push(Math.round(baseNft));
+      });
+      
+      return { months, tokenizedAssets, nftCount };
+    }
+
+    // ==================== 绿色ABS模块图表 ====================
+    function initAbsCharts() {
+      // 发行趋势图表
+      const trendCtx = document.getElementById('abs-issuance-trend-chart').getContext('2d');
+      const trendData = generateAbsIssuanceTrendData();
+      
+      appState.charts.absIssuanceTrendChart = new Chart(trendCtx, {
+        type: 'bar',
+        data: {
+          labels: trendData.quarters,
+          datasets: [
+            {
+              label: '发行规模 (亿元)',
+              data: trendData.issuanceVolume.map(v => v / 100000000),
+              backgroundColor: 'rgba(34, 197, 94, 0.7)',
+              borderColor: 'rgba(34, 197, 94, 1)',
+              yAxisID: 'y'
+            },
+            {
+              label: '产品数量',
+              data: trendData.productCount,
+              backgroundColor: 'transparent',
+              borderColor: '#165DFF',
+              borderWidth: 2,
+              type: 'line',
+              tension: 0.4,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { title: { display: true, text: '发行规模 (亿元)' } },
+            y1: { position: 'right', title: { display: true, text: '产品数量' }, grid: { display: false } }
+          }
+        }
+      });
+      
+      // 投资人类型分布图表
+      const investorCtx = document.getElementById('abs-investor-type-chart').getContext('2d');
+      appState.charts.absInvestorTypeChart = new Chart(investorCtx, {
+        type: 'pie',
+        data: {
+          labels: ['银行', '保险公司', '基金公司', '证券公司', '个人投资者'],
+          datasets: [{
+            data: [45, 25, 15, 10, 5],
+            backgroundColor: [
+              'rgba(22, 93, 255, 0.7)',
+              'rgba(34, 197, 94, 0.7)',
+              'rgba(156, 39, 176, 0.7)',
+              'rgba(245, 158, 11, 0.7)',
+              'rgba(134, 144, 156, 0.7)'
+            ],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+      
+      // 认购金额分布图表
+      const amountCtx = document.getElementById('abs-subscription-amount-chart').getContext('2d');
+      appState.charts.absSubscriptionAmountChart = new Chart(amountCtx, {
+        type: 'bar',
+        data: {
+          labels: ['100万以下', '100-500万', '500-1000万', '1000-5000万', '5000万以上'],
+          datasets: [{
+            label: '投资人数量',
+            data: [1250, 840, 420, 210, 125],
+            backgroundColor: 'rgba(22, 93, 255, 0.7)',
+            yAxisID: 'y'
+          }, {
+            label: '累计认购金额 (亿元)',
+            data: [2.1, 5.8, 8.5, 12.3, 18.7],
+            backgroundColor: 'transparent',
+            borderColor: '#22C55E',
+            borderWidth: 2,
+            type: 'line',
+            tension: 0.4,
+            yAxisID: 'y1'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { title: { display: true, text: '投资人数量' } },
+            y1: { position: 'right', title: { display: true, text: '认购金额 (亿元)' }, grid: { display: false } }
+          }
+        }
+      });
+      
+      // 认购趋势图表
+      const subTrendCtx = document.getElementById('abs-subscription-trend-chart').getContext('2d');
+      appState.charts.absSubscriptionTrendChart = new Chart(subTrendCtx, {
+        type: 'line',
+        data: {
+          labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+          datasets: [{
+            label: '月度认购金额 (亿元)',
+            data: [1.2, 1.5, 2.1, 2.8, 3.2, 3.8, 4.2, 4.5, 4.8, 5.2, 5.5, 5.8],
+            borderColor: '#22C55E',
+            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { title: { display: true, text: '认购金额 (亿元)' } } }
+        }
+      });
+    }
+    
+    function refreshAbsCharts() {
+      if (!appState.charts.absIssuanceTrendChart) return;
+      
+      // 更新发行趋势图表
+      const newTrendData = generateAbsIssuanceTrendData();
+      appState.charts.absIssuanceTrendChart.data.datasets[0].data = newTrendData.issuanceVolume.map(v => v / 100000000);
+      appState.charts.absIssuanceTrendChart.data.datasets[1].data = newTrendData.productCount;
+      appState.charts.absIssuanceTrendChart.update();
+    }
+    
+    // 生成ABS发行趋势数据
+    function generateAbsIssuanceTrendData() {
+      const quarters = ['Q1 2022', 'Q2 2022', 'Q3 2022', 'Q4 2022', 'Q1 2023', 'Q2 2023', 'Q3 2023', 'Q4 2023'];
+      const issuanceVolume = [];
+      const productCount = [];
+      
+      let baseVolume = 30000000;
+      let baseCount = 1;
+      
+      quarters.forEach(() => {
+        baseVolume = baseVolume * (1 + 0.15 + (Math.random() - 0.5) * 0.08);
+        issuanceVolume.push(Math.round(baseVolume));
+        
+        baseCount = baseCount + 0.3 + Math.random() * 0.5;
+        productCount.push(Math.round(baseCount));
+      });
+      
+      return { quarters, issuanceVolume, productCount };
+    }
+
+    // 模拟ABS产品认购进度更新
+    function simulateSubscriptionProgress() {
+      // 产品1进度更新（68% → 最多95%）
+      const progress1 = parseInt(document.getElementById('abs-progress-1').textContent);
+      if (progress1 < 95) {
+        const newProgress1 = progress1 + Math.random() * 2;
+        document.getElementById('abs-progress-1').textContent = `${Math.min(95, Math.round(newProgress1))}%`;
+        document.getElementById('abs-progress-bar-1').style.width = `${Math.min(95, newProgress1)}%`;
+        document.getElementById('abs-progress-1-label').textContent = 
+          `已认购 ¥${(2.5 * Math.min(95, newProgress1) / 100).toFixed(1)}亿 / 总 ¥2.5亿`;
+      }
+      
+      // 产品2进度更新（82% → 最多95%）
+      const progress2 = parseInt(document.getElementById('abs-progress-2').textContent);
+      if (progress2 < 95) {
+        const newProgress2 = progress2 + Math.random() * 1.5;
+        document.getElementById('abs-progress-2').textContent = `${Math.min(95, Math.round(newProgress2))}%`;
+        document.getElementById('abs-progress-bar-2').style.width = `${Math.min(95, newProgress2)}%`;
+        document.getElementById('abs-progress-2-label').textContent = 
+          `已认购 ¥${(1.8 * Math.min(95, newProgress2) / 100).toFixed(2)}亿 / 总 ¥1.8亿`;
+      }
+    }
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+      // 设置当前日期
+      const today = new Date();
+      const dateInput = document.getElementById('weather-date-select');
+      if (dateInput) {
+        dateInput.valueAsDate = today;
+      }
+      
+      // 绑定模块切换事件
+      document.querySelectorAll('.module-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const moduleId = this.dataset.module;
+          switchModule(moduleId);
+        });
+      });
+      
+      // 绑定全局刷新事件
+      document.getElementById('global-refresh-btn').addEventListener('click', globalRefresh);
+      
+      // 绑定发电预测应用设置按钮事件
+      document.getElementById('forecast-apply-settings').addEventListener('click', function() {
+        refreshForecastCharts();
+        alert('预测参数已更新');
+      });
+      
+      // 绑定气象快速查看按钮事件
+      document.getElementById('weather-quick-view-btn').addEventListener('click', function() {
+        showCityDetail('杭州萧山');
+      });
+      
+      // 更新全局时间
+      updateGlobalLastUpdateTime();
+      
+      // 初始化默认模块图表
+      initCurrentModuleCharts();
+      
+      // 启动认购进度模拟
+      setInterval(simulateSubscriptionProgress, 30000);
+    });
+  </script>
+</body>
+</html>
